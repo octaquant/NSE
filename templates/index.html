@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NSE Market Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <header class="top-header">
+    <h1>NSE Market Dashboard</h1>
+    <div class="status-wrap">
+      <span id="status-pill" class="status-pill neutral">Initializing...</span>
+      <span id="last-updated" class="last-updated">Last updated: --</span>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <section>
+      <h2>Major Indices</h2>
+      <div id="cards-grid" class="cards-grid"></div>
+    </section>
+
+    <section class="charts-grid">
+      <div class="panel">
+        <h3>Index Performance (% Change)</h3>
+        <div id="bar-chart" class="chart"></div>
+      </div>
+      <div class="panel">
+        <h3>Market Heatmap</h3>
+        <div id="heatmap-chart" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h3>All Indices Table</h3>
+      <div class="table-wrap">
+        <table id="indices-table">
+          <thead>
+            <tr>
+              <th>Index Name</th>
+              <th>Last Price</th>
+              <th>Change</th>
+              <th>% Change</th>
+              <th>High</th>
+              <th>Low</th>
+              <th>Open</th>
+              <th>Previous Close</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const REFRESH_MS = 30000;
+
+    function formatNum(value, digits = 2) {
+      return Number(value).toLocaleString('en-IN', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      });
+    }
+
+    function trendClass(changeValue) {
+      if (changeValue > 0) return 'positive';
+      if (changeValue < 0) return 'negative';
+      return 'neutral';
+    }
+
+    function buildCards(indices) {
+      const cardsGrid = document.getElementById('cards-grid');
+      cardsGrid.innerHTML = '';
+
+      indices.forEach((item) => {
+        const trend = trendClass(item.percent_change);
+        const card = document.createElement('article');
+        card.className = `index-card ${trend}`;
+        card.innerHTML = `
+          <div class="card-head">
+            <h4>${item.index_name}</h4>
+            <span class="pct ${trend}">${formatNum(item.percent_change)}%</span>
+          </div>
+          <p class="last-price">${formatNum(item.last_price)}</p>
+          <p class="change ${trend}">Change: ${formatNum(item.change)}</p>
+        `;
+        cardsGrid.appendChild(card);
+      });
+    }
+
+    function buildTable(indices) {
+      const tbody = document.querySelector('#indices-table tbody');
+      tbody.innerHTML = '';
+
+      indices.forEach((item) => {
+        const trend = trendClass(item.percent_change);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.index_name}</td>
+          <td>${formatNum(item.last_price)}</td>
+          <td class="${trend}">${formatNum(item.change)}</td>
+          <td class="${trend}">${formatNum(item.percent_change)}%</td>
+          <td>${formatNum(item.high)}</td>
+          <td>${formatNum(item.low)}</td>
+          <td>${formatNum(item.open)}</td>
+          <td>${formatNum(item.previous_close)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function buildBarChart(indices) {
+      const names = indices.map((item) => item.index_name);
+      const pct = indices.map((item) => item.percent_change);
+      const colors = pct.map((v) => (v >= 0 ? '#00c853' : '#ff5252'));
+
+      const data = [{
+        x: names,
+        y: pct,
+        type: 'bar',
+        marker: { color: colors },
+        hovertemplate: '%{x}<br>% Change: %{y:.2f}%<extra></extra>',
+      }];
+
+      const layout = {
+        paper_bgcolor: '#121a24',
+        plot_bgcolor: '#121a24',
+        font: { color: '#dce3ec' },
+        margin: { t: 20, b: 90, l: 50, r: 20 },
+        xaxis: { tickangle: -35 },
+        yaxis: { title: '% Change' },
+      };
+
+      Plotly.react('bar-chart', data, layout, { responsive: true, displayModeBar: false });
+    }
+
+    function buildHeatmap(indices) {
+      const values = indices.map((item) => item.percent_change);
+      const text = indices.map((item) => `${item.index_name}<br>${formatNum(item.percent_change)}%`);
+
+      const data = [{
+        type: 'treemap',
+        labels: indices.map((item) => item.index_name),
+        parents: indices.map(() => ''),
+        values: values.map((v) => Math.abs(v) + 0.1),
+        text: text,
+        textinfo: 'text',
+        marker: {
+          colors: values,
+          colorscale: [
+            [0, '#d50000'],
+            [0.5, '#263238'],
+            [1, '#00c853'],
+          ],
+          cmin: Math.min(...values, -1),
+          cmax: Math.max(...values, 1),
+        },
+        hovertemplate: '%{label}<br>%{customdata:.2f}%<extra></extra>',
+        customdata: values,
+      }];
+
+      const layout = {
+        paper_bgcolor: '#121a24',
+        plot_bgcolor: '#121a24',
+        font: { color: '#dce3ec' },
+        margin: { t: 20, b: 20, l: 10, r: 10 },
+      };
+
+      Plotly.react('heatmap-chart', data, layout, { responsive: true, displayModeBar: false });
+    }
+
+    async function refreshData() {
+      const statusPill = document.getElementById('status-pill');
+
+      try {
+        statusPill.textContent = 'Refreshing...';
+        statusPill.className = 'status-pill neutral';
+
+        const response = await fetch('/api/indices');
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const indices = payload.indices || [];
+
+        buildCards(indices);
+        buildTable(indices);
+        buildBarChart(indices);
+        buildHeatmap(indices);
+
+        document.getElementById('last-updated').textContent = `Last updated: ${payload.last_updated}`;
+        statusPill.textContent = `Live • ${indices.length} indices`;
+        statusPill.className = 'status-pill positive';
+      } catch (error) {
+        console.error(error);
+        statusPill.textContent = 'Disconnected';
+        statusPill.className = 'status-pill negative';
+      }
+    }
+
+    refreshData();
+    setInterval(refreshData, REFRESH_MS);
+  </script>
+</body>
+</html>
