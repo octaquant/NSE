@@ -1,13 +1,20 @@
-"""Flask app for NSE Market Dashboard."""
+"""Flask app for NSE Smart Market Dashboard."""
 
 from __future__ import annotations
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask, jsonify, render_template
 
 from utils.nse_fetch import NSEFetcher
 
 app = Flask(__name__)
-fetcher = NSEFetcher()
+fetcher = NSEFetcher(refresh_interval_seconds=20)
+
+
+# Background scheduler keeps cache warm every 20 seconds.
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(fetcher.refresh_if_due, "interval", seconds=20, id="nse-cache-refresh", max_instances=1)
+scheduler.start()
 
 
 @app.get("/")
@@ -18,7 +25,7 @@ def index():
 
 @app.get("/api/indices")
 def get_indices():
-    """API endpoint consumed by frontend every 30 seconds."""
+    """Serve latest cached market snapshot to frontend."""
     try:
         payload = fetcher.get_indices_payload()
         return jsonify(payload)

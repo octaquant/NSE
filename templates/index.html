@@ -3,38 +3,78 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NSE Market Dashboard</title>
+  <title>NSE Smart Market Dashboard</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
   <header class="top-header">
-    <h1>NSE Market Dashboard</h1>
+    <div>
+      <h1>NSE Smart Market Dashboard</h1>
+      <p class="subtitle">Professional Trading Analytics Terminal</p>
+    </div>
     <div class="status-wrap">
       <span id="status-pill" class="status-pill neutral">Initializing...</span>
-      <span id="last-updated" class="last-updated">Last updated: --</span>
+      <span id="ist-time" class="last-updated">IST Time: --</span>
+      <span id="last-updated" class="last-updated">Last market update: --</span>
     </div>
   </header>
 
   <main class="dashboard">
-    <section>
-      <h2>Major Indices</h2>
-      <div id="cards-grid" class="cards-grid"></div>
+    <section class="top-panels">
+      <div class="panel">
+        <h3>Indices Overview</h3>
+        <div id="cards-grid" class="cards-grid"></div>
+      </div>
+
+      <div class="panel vix-panel">
+        <h3>India VIX Monitor</h3>
+        <div class="vix-gauge-wrap">
+          <div class="vix-gauge-track">
+            <div id="vix-gauge-fill" class="vix-gauge-fill"></div>
+          </div>
+          <div class="vix-meta">
+            <p id="vix-price" class="vix-price">0.00</p>
+            <p id="vix-change" class="vix-change neutral">Δ 0.00%</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Liquidity + Momentum Signal</h3>
+        <p id="market-signal" class="signal-label neutral">SIDEWAYS MARKET</p>
+        <p id="market-signal-reason" class="signal-reason">Waiting for first market snapshot.</p>
+      </div>
     </section>
 
-    <section class="charts-grid">
+    <section class="mid-panels">
       <div class="panel">
-        <h3>Index Performance (% Change)</h3>
-        <div id="bar-chart" class="chart"></div>
+        <h3>Sector Strength Ranking</h3>
+        <div class="ranking-grid">
+          <div>
+            <h4>Top 3 Bullish</h4>
+            <ul id="bullish-list" class="ranking-list"></ul>
+          </div>
+          <div>
+            <h4>Top 3 Bearish</h4>
+            <ul id="bearish-list" class="ranking-list"></ul>
+          </div>
+        </div>
       </div>
+
       <div class="panel">
-        <h3>Market Heatmap</h3>
-        <div id="heatmap-chart" class="chart"></div>
+        <h3>Smart Market Heatmap</h3>
+        <div id="heatmap-grid" class="heatmap-grid"></div>
       </div>
     </section>
 
     <section class="panel">
-      <h3>All Indices Table</h3>
+      <h3>Interactive Performance Chart</h3>
+      <div id="bar-chart" class="chart"></div>
+    </section>
+
+    <section class="panel">
+      <h3>Full Indices Data Table</h3>
       <div class="table-wrap">
         <table id="indices-table">
           <thead>
@@ -47,6 +87,9 @@
               <th>Low</th>
               <th>Open</th>
               <th>Previous Close</th>
+              <th>Volume</th>
+              <th>Volume Exp.</th>
+              <th>Volatility Exp.</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -56,7 +99,7 @@
   </main>
 
   <script>
-    const REFRESH_MS = 30000;
+    const REFRESH_MS = 20000;
 
     function formatNum(value, digits = 2) {
       return Number(value).toLocaleString('en-IN', {
@@ -69,6 +112,12 @@
       if (changeValue > 0) return 'positive';
       if (changeValue < 0) return 'negative';
       return 'neutral';
+    }
+
+    function updateClock() {
+      const now = new Date();
+      const ist = now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+      document.getElementById('ist-time').textContent = `IST Time: ${ist}`;
     }
 
     function buildCards(indices) {
@@ -91,6 +140,62 @@
       });
     }
 
+    function buildRanking(listId, items) {
+      const el = document.getElementById(listId);
+      el.innerHTML = '';
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        const trend = trendClass(item.percent_change);
+        li.className = trend;
+        li.textContent = `${item.index_name}: ${formatNum(item.percent_change)}%`;
+        el.appendChild(li);
+      });
+    }
+
+    function buildHeatmap(indices) {
+      const container = document.getElementById('heatmap-grid');
+      container.innerHTML = '';
+
+      indices.forEach((item) => {
+        const pct = Number(item.percent_change);
+        let zoneClass = 'mild-bullish';
+        if (pct >= 1.2) zoneClass = 'strong-bullish';
+        else if (pct >= 0) zoneClass = 'mild-bullish';
+        else if (pct > -1.2) zoneClass = 'mild-bearish';
+        else zoneClass = 'strong-bearish';
+
+        const tile = document.createElement('div');
+        tile.className = `heat-tile ${zoneClass}`;
+        tile.innerHTML = `<span>${item.index_name}</span><strong>${formatNum(pct)}%</strong>`;
+        container.appendChild(tile);
+      });
+    }
+
+    function buildVixGauge(vix) {
+      const fill = document.getElementById('vix-gauge-fill');
+      const price = Number(vix.last_price || 0);
+      const pct = Number(vix.percent_change || 0);
+      const cap = Math.min((price / 25) * 100, 100);
+      fill.style.width = `${cap}%`;
+      fill.className = `vix-gauge-fill ${vix.zone || 'neutral'}`;
+      document.getElementById('vix-price').textContent = `India VIX: ${formatNum(price)}`;
+      const trend = trendClass(pct);
+      const changeEl = document.getElementById('vix-change');
+      changeEl.className = `vix-change ${trend}`;
+      changeEl.textContent = `Δ ${formatNum(pct)}%`;
+    }
+
+    function buildSignal(signal) {
+      const label = document.getElementById('market-signal');
+      const reason = document.getElementById('market-signal-reason');
+      const text = signal?.label || 'SIDEWAYS MARKET';
+      label.textContent = text;
+      label.className = 'signal-label neutral';
+      if (text.includes('BULLISH')) label.className = 'signal-label positive';
+      if (text.includes('BEARISH')) label.className = 'signal-label negative';
+      reason.textContent = signal?.reason || 'No diagnostic snapshot available.';
+    }
+
     function buildTable(indices) {
       const tbody = document.querySelector('#indices-table tbody');
       tbody.innerHTML = '';
@@ -107,6 +212,9 @@
           <td>${formatNum(item.low)}</td>
           <td>${formatNum(item.open)}</td>
           <td>${formatNum(item.previous_close)}</td>
+          <td>${formatNum(item.volume, 0)}</td>
+          <td>${formatNum(item.volume_expansion)}</td>
+          <td>${formatNum(item.volatility_expansion)}</td>
         `;
         tbody.appendChild(row);
       });
@@ -137,46 +245,11 @@
       Plotly.react('bar-chart', data, layout, { responsive: true, displayModeBar: false });
     }
 
-    function buildHeatmap(indices) {
-      const values = indices.map((item) => item.percent_change);
-      const text = indices.map((item) => `${item.index_name}<br>${formatNum(item.percent_change)}%`);
-
-      const data = [{
-        type: 'treemap',
-        labels: indices.map((item) => item.index_name),
-        parents: indices.map(() => ''),
-        values: values.map((v) => Math.abs(v) + 0.1),
-        text: text,
-        textinfo: 'text',
-        marker: {
-          colors: values,
-          colorscale: [
-            [0, '#d50000'],
-            [0.5, '#263238'],
-            [1, '#00c853'],
-          ],
-          cmin: Math.min(...values, -1),
-          cmax: Math.max(...values, 1),
-        },
-        hovertemplate: '%{label}<br>%{customdata:.2f}%<extra></extra>',
-        customdata: values,
-      }];
-
-      const layout = {
-        paper_bgcolor: '#121a24',
-        plot_bgcolor: '#121a24',
-        font: { color: '#dce3ec' },
-        margin: { t: 20, b: 20, l: 10, r: 10 },
-      };
-
-      Plotly.react('heatmap-chart', data, layout, { responsive: true, displayModeBar: false });
-    }
-
     async function refreshData() {
       const statusPill = document.getElementById('status-pill');
 
       try {
-        statusPill.textContent = 'Refreshing...';
+        statusPill.textContent = 'Auto refreshing...';
         statusPill.className = 'status-pill neutral';
 
         const response = await fetch('/api/indices');
@@ -188,20 +261,26 @@
         const indices = payload.indices || [];
 
         buildCards(indices);
+        buildRanking('bullish-list', payload.top_bullish || []);
+        buildRanking('bearish-list', payload.top_bearish || []);
+        buildHeatmap(indices);
+        buildVixGauge(payload.india_vix || {});
+        buildSignal(payload.market_signal || {});
         buildTable(indices);
         buildBarChart(indices);
-        buildHeatmap(indices);
 
-        document.getElementById('last-updated').textContent = `Last updated: ${payload.last_updated}`;
-        statusPill.textContent = `Live • ${indices.length} indices`;
+        document.getElementById('last-updated').textContent = `Last market update: ${payload.last_updated}`;
+        statusPill.textContent = `Live • Auto refresh ${REFRESH_MS / 1000}s`;
         statusPill.className = 'status-pill positive';
       } catch (error) {
         console.error(error);
-        statusPill.textContent = 'Disconnected';
+        statusPill.textContent = 'Feed disconnected';
         statusPill.className = 'status-pill negative';
       }
     }
 
+    updateClock();
+    setInterval(updateClock, 1000);
     refreshData();
     setInterval(refreshData, REFRESH_MS);
   </script>
