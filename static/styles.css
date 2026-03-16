@@ -7,11 +7,13 @@
   --positive: #00c853;
   --negative: #ff5252;
   --neutral: #7f8c9a;
+  --strong-bullish: #0b5d1e;
+  --mild-bullish: #1f8f45;
+  --mild-bearish: #9b3740;
+  --strong-bearish: #6d1b1e;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -23,7 +25,8 @@ body {
 .top-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
   padding: 20px 28px;
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -33,129 +36,117 @@ body {
   z-index: 10;
 }
 
-.top-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  letter-spacing: 0.5px;
-}
+.top-header h1 { margin: 0; font-size: 1.45rem; }
+.subtitle { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
 
-.status-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.status-pill {
-  font-size: 0.8rem;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-weight: 600;
-}
-
+.status-wrap { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+.status-pill { font-size: 0.8rem; border-radius: 999px; padding: 6px 10px; font-weight: 600; }
 .status-pill.positive { background: rgba(0, 200, 83, 0.2); color: var(--positive); }
 .status-pill.negative { background: rgba(255, 82, 82, 0.2); color: var(--negative); }
 .status-pill.neutral { background: rgba(127, 140, 154, 0.2); color: var(--neutral); }
+.last-updated { color: var(--muted); font-size: 0.85rem; }
 
-.last-updated {
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.dashboard {
-  padding: 20px 28px 30px;
-  display: grid;
-  gap: 20px;
-}
-
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-}
-
-.index-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
-}
-
-.index-card.positive { border-left: 4px solid var(--positive); }
-.index-card.negative { border-left: 4px solid var(--negative); }
-.index-card.neutral { border-left: 4px solid var(--neutral); }
-
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card-head h4 {
-  margin: 0;
-  font-size: 0.92rem;
-}
-
-.last-price {
-  margin: 10px 0 6px;
-  font-size: 1.4rem;
-  font-weight: 700;
-}
-
-.change {
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.positive { color: var(--positive); }
-.negative { color: var(--negative); }
-.neutral { color: var(--neutral); }
-
-.charts-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
+.dashboard { padding: 20px 28px 30px; display: grid; gap: 20px; }
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
 }
+.panel h3 { margin: 4px 4px 10px; font-size: 1rem; }
 
-.panel h3 {
-  margin: 4px 4px 10px;
-  font-size: 1rem;
+.top-panels {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
 }
 
-.chart {
-  min-height: 320px;
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.index-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.index-card.positive { border-left: 4px solid var(--positive); }
+.index-card.negative { border-left: 4px solid var(--negative); }
+.index-card.neutral { border-left: 4px solid var(--neutral); }
+.card-head { display: flex; justify-content: space-between; gap: 8px; }
+.card-head h4 { margin: 0; font-size: 0.88rem; }
+.last-price { margin: 10px 0 4px; font-size: 1.2rem; font-weight: 700; }
+
+.vix-gauge-track { width: 100%; height: 16px; background: #1d2835; border-radius: 999px; overflow: hidden; }
+.vix-gauge-fill { height: 100%; width: 0%; transition: width 0.3s ease; }
+.vix-gauge-fill.risk-low { background: linear-gradient(90deg, #1f8f45, #37c96f); }
+.vix-gauge-fill.risk-medium { background: linear-gradient(90deg, #f9a825, #ffc107); }
+.vix-gauge-fill.risk-high { background: linear-gradient(90deg, #ef5350, #c62828); }
+.vix-meta { margin-top: 10px; }
+.vix-price { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.vix-change { margin: 4px 0 0; }
+
+.signal-label { margin: 8px 0; font-size: 1.05rem; font-weight: 700; }
+.signal-reason { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+.mid-panels {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
 }
 
-.table-wrap {
-  overflow-x: auto;
-}
+.ranking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ranking-list { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.ranking-list li { font-size: 0.9rem; }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
 }
-
-thead {
-  background: rgba(255, 255, 255, 0.03);
+.heat-tile {
+  border-radius: 8px;
+  min-height: 80px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid rgba(255,255,255,0.08);
 }
+.heat-tile span { font-size: 0.78rem; color: #ecf3fa; }
+.heat-tile strong { font-size: 1rem; }
+.heat-tile.strong-bullish { background: var(--strong-bullish); }
+.heat-tile.mild-bullish { background: var(--mild-bullish); }
+.heat-tile.mild-bearish { background: var(--mild-bearish); }
+.heat-tile.strong-bearish { background: var(--strong-bearish); }
 
-th,
-td {
+.chart { min-height: 320px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead { background: rgba(255,255,255,0.03); }
+th, td {
   padding: 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 
-@media (max-width: 980px) {
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
+.positive { color: var(--positive); }
+.negative { color: var(--negative); }
+.neutral { color: var(--neutral); }
+
+@media (max-width: 1180px) {
+  .top-panels { grid-template-columns: 1fr; }
+  .mid-panels { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .top-header { padding: 14px; flex-direction: column; }
+  .status-wrap { align-items: flex-start; }
+  .dashboard { padding: 14px; }
+  .cards-grid { grid-template-columns: 1fr; }
+  .ranking-grid { grid-template-columns: 1fr; }
 }
